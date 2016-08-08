@@ -1,3 +1,4 @@
+<img src="http://i.imgur.com/DYuYuEJ.png" height=60><img src="http://joinhandshake.com/img/posts/elasticsearch.png" height=60>
 ## Nagios Watcher script for Elasticsearch Indices
 
 This is a simple script to check the status of an elasticsearch watcher history and other indices.
