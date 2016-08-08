@@ -52,7 +52,7 @@ print_help() {
     echo "It also parses the status page to get a few useful variables out, and return"
     echo "them in the output."
     echo ""
-    echo "$PROGNAME -H localhost -P 9200 -o /tmp"
+    echo "$PROGNAME -H localhost -P 9200"
     echo ""
     echo "Options:"
     echo "  -H/--hostname"
@@ -62,8 +62,14 @@ print_help() {
     echo "  -A/--auth"
     echo "     Defines the HTTP authentication. Default is: none"
     echo "  -L/--last"
-    echo "     Specifies the timerange to search (ie: 5m)."
-    echo "     Default is: /tmp"
+    echo "     Specifies the timerange to search (default: 5m )"
+    echo "  -p/--path"
+    echo "     Specifies the query path (default: .watch_history*/_count )"
+    echo "  -T/--ts"
+    echo "     Specifies the timefield for filters (default: @timestamp )"
+    echo "  -Q/--query"
+    echo "     Specifies the query string to use (default: * )"
+    echo " "
     exit $ST_UK
 }
 
@@ -79,6 +85,10 @@ while test -n "$1"; do
             ;;
         --hostname|-H)
             hostname=$2
+            shift
+            ;;
+        --path|-p)
+            status_page=$2
             shift
             ;;
         --port|-P)
