@@ -30,6 +30,6 @@ Count watcher events in last 5 minutes using timefield __result.execution_time__
 Count specific matches in last hour using custom __path__ and __query_string__ and 
 ```
 ./nagios_es_watcher -H 127.0.0.1 -P 9200 --auth "username:password" \
--Q "reply:503 AND cseq:INVITE" -L "1d" --path "index_*-*/_count"
+-Q "reply:503 AND cseq:INVITE" -L "1h" --path "myindex-*/_count"
 ```
  
