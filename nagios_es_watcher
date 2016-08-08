@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #   Nagios Check for Conditions met in Elasticsearch Watcher History
 #
@@ -17,8 +17,8 @@
 #   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 PROGNAME=`basename $0`
-VERSION="Version 0.1"
-AUTHOR="QXIP BV"
+VERSION="Version 0.2"
+AUTHOR="Nobody @ QXIP BV"
 
 ST_OK=0
 ST_WR=1
@@ -29,7 +29,17 @@ epoch=`date +%s`
 hostname="localhost"
 port=9200
 status_page=".watch_history*/_count"
-query='{"query": {"filtered":{"query":{"query_string":{"query":"result.condition.met:true"}},"filter":{"range": {"result.execution_time": {"gt": "now-5m"}} }} }}'
+query='{"query": {"filtered":{"query":{"query_string":{"query":"*"}},"filter":{"range": {"@timestamp": {"gt": "now-5m"}} }} }}'
+query_string="*"
+timefield="@timestamp"
+timerange="5m"
+
+build_query() {
+    query='{"query": {"filtered":{"query":{"query_string":{"query":"*"}},"filter":{"range": {"@timestamp": {"gt": "now-5m"}} }} }}'
+    query="${query/5m/$timerange}"
+    query="${query/@timestamp/$timefield}"
+    query="${query/\*/$query_string}"
+}
 
 print_version() {
     echo "$VERSION $AUTHOR"
@@ -45,13 +55,13 @@ print_help() {
     echo "$PROGNAME -H localhost -P 9200 -o /tmp"
     echo ""
     echo "Options:"
-    echo "  -H/--hostname)"
+    echo "  -H/--hostname"
     echo "     Defines the hostname. Default is: localhost"
-    echo "  -P/--port)"
+    echo "  -P/--port"
     echo "     Defines the port. Default is: 9200"
-    echo "  -A/--auth)"
+    echo "  -A/--auth"
     echo "     Defines the HTTP authentication. Default is: none"
-    echo "  -L/--last)"
+    echo "  -L/--last"
     echo "     Specifies the timerange to search (ie: 5m)."
     echo "     Default is: /tmp"
     exit $ST_UK
@@ -80,7 +90,15 @@ while test -n "$1"; do
             shift
             ;;
         --last|-L)
-            query=${query/5m/$2}
+            timerange=$2
+            shift
+            ;;
+        --ts|-T)
+            timefield=$2
+            shift
+            ;;
+        --query|-Q)
+            query_string=$2
             shift
             ;;
         *)
@@ -90,6 +108,7 @@ while test -n "$1"; do
         ;;
     esac
     shift
+    build_query
 done
 
 get_status() {
@@ -102,13 +121,13 @@ get_status() {
     count=$( eval $command | egrep -o '"count":[0-9]+' | cut -d ":" -f2 )
 
     # Determine the Nagios Status and Exit Code
-    if [ "$count" > 10 ]; then
+    if [ "$count" -gt 10 ]; then
         NAGSTATUS="CRITICAL"
         EXST=$ST_CR
-    elif [ "$count" > 0 ]; then
+    elif [ "$count" -gt 0 ]; then
         NAGSTATUS="WARNING"
         EXST=$ST_WR
-    elif [ "$count" = 0 ]; then
+    elif [ "$count" -eq 0 ]; then
         NAGSTATUS="OK"
         EXST=$ST_OK
     else
@@ -120,7 +139,7 @@ get_status() {
 do_output() {
 get_status
 output="elasticsearch ($name) is running. \
-watcher alarm count: $count"
+watcher count: $count"
 }
 
 
