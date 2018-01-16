@@ -25,17 +25,16 @@ ST_WR=1
 ST_CR=2
 ST_UK=3
 
-epoch=`date +%s`
 hostname="localhost"
 port=9200
 status_page=".watch_history*/_count"
-query='{"query": {"filtered":{"query":{"query_string":{"query":"*"}},"filter":{"range": {"@timestamp": {"gt": "now-5m"}} }} }}'
+query='{"query":{"bool":{"must":[{"match_phrase":{"message":{"query":"*"}}},{"range":{"@timestamp":{"gt":"now-5m"}}} ] }}}'
 query_string="*"
 timefield="@timestamp"
 timerange="5m"
 
 build_query() {
-    query='{"query": {"filtered":{"query":{"query_string":{"query":"*"}},"filter":{"range": {"@timestamp": {"gt": "now-5m"}} }} }}'
+    query='{"query":{"bool":{"must":[{"match_phrase":{"message":{"query":"*"}}},{"range":{"@timestamp":{"gt":"now-5m"}}} ] }}}'
     query="${query/5m/$timerange}"
     query="${query/@timestamp/$timefield}"
     query="${query/\*/$query_string}"
@@ -167,7 +166,6 @@ fi
 
 do_output
        
-COMPARE=$listql
 
 echo "${NAGSTATUS} - ${output}"
 exit $EXST
