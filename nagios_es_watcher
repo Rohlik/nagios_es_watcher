@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#   Nagios Check for Conditions met in Elasticsearch Watcher History
+#   Nagios Check for Conditions met in Elasticsearch index
 #
 #   This program is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -15,29 +15,43 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program; if not, write to the Free Software
 #   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+#
+# Upraveno: Rohlik
+# Verze: 20180115.1
 
 PROGNAME=`basename $0`
-VERSION="Version 0.2"
-AUTHOR="Nobody @ QXIP BV"
+VERSION="0.3"
+AUTHOR="Nobody @ QXIP BV, modified by Rohlik"
 
 ST_OK=0
 ST_WR=1
 ST_CR=2
 ST_UK=3
 
+re='^[0-9]+$'
+epoch=`date +%s`
 hostname="localhost"
 port=9200
-status_page=".watch_history*/_count"
-query='{"query":{"bool":{"must":[{"match_phrase":{"message":{"query":"*"}}},{"range":{"@timestamp":{"gt":"now-5m"}}} ] }}}'
+status_page="nonpci-$(date +"%Y.%m.*")/_count"
+query='{"query":{"bool":{"must":[{"match_phrase":{"message":{"query":"*"}}},{"range":{"@timestamp":{"gt":"now-5m"}}}]}}}'
 query_string="*"
 timefield="@timestamp"
 timerange="5m"
+c_threshold="5"
+w_threshold="0"
 
 build_query() {
-    query='{"query":{"bool":{"must":[{"match_phrase":{"message":{"query":"*"}}},{"range":{"@timestamp":{"gt":"now-5m"}}} ] }}}'
+    query='{"query":{"bool":{"must":[{"match_phrase":{"message":{"query":"*"}}},{"range":{"@timestamp":{"gt":"now-5m"}}}]}}}'
     query="${query/5m/$timerange}"
     query="${query/@timestamp/$timefield}"
     query="${query/\*/$query_string}"
+}
+
+verify() {
+if ! [[ "$c_threshold" =~ $re ]] || ! [[ "$w_threshold" =~ $re ]]; then
+        echo "Parameters for warning and critical threshold must be integer (whole numbers)!"
+        exit 3
+fi
 }
 
 print_version() {
@@ -47,9 +61,7 @@ print_version() {
 print_help() {
     print_version $PROGNAME $VERSION
     echo ""
-    echo "$PROGNAME is a Nagios plugin to check the status of elasticsearch Watcher history."
-    echo "It also parses the status page to get a few useful variables out, and return"
-    echo "them in the output."
+    echo "$PROGNAME is a Nagios plugin to check the Elasticsearch index for specific string."
     echo ""
     echo "$PROGNAME -H localhost -P 9200"
     echo ""
@@ -63,11 +75,15 @@ print_help() {
     echo "  -L/--last"
     echo "     Specifies the timerange to search (default: 5m )"
     echo "  -p/--path"
-    echo "     Specifies the query path (default: .watch_history*/_count )"
+    echo "     Specifies the query path (default: nonpci-*/_count )"
     echo "  -T/--ts"
     echo "     Specifies the timefield for filters (default: @timestamp )"
     echo "  -Q/--query"
     echo "     Specifies the query string to use (default: * )"
+    echo "  -W/-w"
+    echo "     Specifies the warning threshold for query count (default: >0 )"
+    echo "  -C/-c"
+    echo "     Specifies the critical threshold for query count (default: =>5 )"
     echo " "
     exit $ST_UK
 }
@@ -110,6 +126,14 @@ while test -n "$1"; do
             query_string=$2
             shift
             ;;
+        -W|-w)
+            w_threshold="$2"
+            shift
+            ;;
+        -C|-c)
+            c_threshold="$2"
+            shift
+            ;;
         *)
         echo "Unknown argument: $1"
         print_help
@@ -118,22 +142,23 @@ while test -n "$1"; do
     esac
     shift
     build_query
+    verify
 done
 
 get_status() {
 
     command="curl -XGET -q -s $hostname:$port/$status_page -d '$query'"
     if [ -n "$http_auth" ]; then
-	      command="$command -u $http_auth"
+              command="$command -u $http_auth"
     fi
 
     count=$( eval $command | egrep -o '"count":[0-9]+' | cut -d ":" -f2 )
 
     # Determine the Nagios Status and Exit Code
-    if [ "$count" -gt 10 ]; then
+    if [ "$count" -ge "$c_threshold" ]; then
         NAGSTATUS="CRITICAL"
         EXST=$ST_CR
-    elif [ "$count" -gt 0 ]; then
+    elif [ "$count" -gt "$w_threshold" ]; then
         NAGSTATUS="WARNING"
         EXST=$ST_WR
     elif [ "$count" -eq 0 ]; then
@@ -147,8 +172,7 @@ get_status() {
 
 do_output() {
 get_status
-output="elasticsearch ($name) is running. \
-watcher count: $count"
+output="Pocet vyskytu stringu \"$query_string\" je: $count"
 }
 
 
@@ -165,7 +189,8 @@ if [ "$?" != "0" ]; then
 fi
 
 do_output
-       
+
+COMPARE=$listql
 
 echo "${NAGSTATUS} - ${output}"
 exit $EXST
